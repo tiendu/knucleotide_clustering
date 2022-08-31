@@ -7,18 +7,15 @@ $file_path_cp =~ s/.*\///;
 my ($file_name, $file_extension) = $file_path_cp =~ /^(.+)\.([^.]+)$/;
 
 open my $input, "<:utf8", $file_path or die;
-my (%id_sequence_hash, $stored_id, $flag);
+my (%id_sequence_hash, $id);
 while (<$input>) {
     chomp;
     if ($_ =~ m/\A>(.+)/) {
         my @fields = split " ";
-        my $id = $fields[0];
-        $id =~ s/>//;
-        $stored_id = $id;
-        $flag = 1;
-    } elsif ($flag) {
-        $id_sequence_hash{$stored_id} = uc $_;
-        $flag = 0;
+        $id = $fields[0] =~ s/>//r;
+        next;
+    } else {
+        $id_sequence_hash{$id} = uc $_;
     };
     last if eof $input;
 };
