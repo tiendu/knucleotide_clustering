@@ -55,7 +55,7 @@ if ($optimisation == 1) {
     my $max = 0;
     my $key;
     foreach (sort keys %silhouette_coefficient) {
-#         print "$_\t$silhouette_coefficient{$_}\n";
+        print "$_\t$silhouette_coefficient{$_}\n";
         ($max, $key) = ($silhouette_coefficient{$_}, $_) if $silhouette_coefficient{$_} > $max;
     };
     $threshold = $key;
@@ -273,14 +273,12 @@ sub silhouette_coefficient_generator {
                     $inter_distance = distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::tetranucleotides);
                     push @silhouette_coefficient, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 > 1) {
+                    $intra_distance = 0;
                     for my $index_a (0 .. $#ids_2) {
-                        for my $index_b (1 + $index_a .. $#ids_2) {
-                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_2[$index_a]}, $id_kmer_normalised_count{$ids_2[$index_b]}, \@::tetranucleotides);
-                        };
-                        $intra_distance = mean(@intra_distances);
-                        $inter_distance = distance_calculator($id_kmer_normalised_count{$ids_2[$index_a]}, $id_kmer_normalised_count{$clusters[$index_1]}, \@::tetranucleotides);
-                        push @silhouette_coefficient, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
+                        push @inter_distances, distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$ids_2[$index_a]}, \@::tetranucleotides);
                     };
+                    $inter_distance = mean(@inter_distances);
+                    push @silhouette_coefficient, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 > 1 && scalar @ids_2 > 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
