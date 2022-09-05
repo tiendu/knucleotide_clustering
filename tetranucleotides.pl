@@ -13,7 +13,7 @@ my (%id_sequence_hash, $stored_id, $flag);
 while (<$input>) {
     chomp;
     if ($_ =~ m/\A>(.+)/) {
-        my @fields = split " ";
+        my @fields = split / /;
         my $id = $fields[0];
         $id =~ s/>//;
         $stored_id = $id;
