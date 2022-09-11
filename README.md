@@ -12,6 +12,6 @@ There are three params:
 
 Example:
 
-perl tetranucleotides.pl -i input.fasta -a 1 ==> cluster based on palindromic tetranucleotides and automated threshold optimisation
+perl tetranucleotides.pl -i input.fasta -a 1 -> cluster based on palindromic tetranucleotides and automated threshold optimisation
 
-perl tetranucleotides.pl -i input.fasta -a 0 -p 0 -c 1.3 ==> cluster based on all tetranucleotides and manually set threshold
+perl tetranucleotides.pl -i input.fasta -a 0 -p 0 -c 1.3 -> cluster based on all tetranucleotides and manually set threshold
