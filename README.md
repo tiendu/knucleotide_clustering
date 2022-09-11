@@ -11,5 +11,7 @@ There are three params:
 - c: if a is turned off then manually set the cutoff here (must be set to a value if a is off)
 
 Example:
+
 perl tetranucleotides.pl -i input.fasta -a 1 ==> cluster based on palindromic tetranucleotides and automated threshold optimisation
+
 perl tetranucleotides.pl -i input.fasta -a 0 -p 0 -c 1.3 ==> cluster based on all tetranucleotides and manually set threshold
