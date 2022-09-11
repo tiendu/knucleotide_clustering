@@ -1,26 +1,25 @@
 use strict;
+use Getopt::Long;
 
-my $file_path = shift @ARGV;
-my $optimisation = shift @ARGV;
-my $threshold;
+GetOptions(
+    "input|i=s" => \my $file_path,
+    "auto|a=i" => \(my $optimisation = 1),
+    "palindromes|p=i" => \my $use_palindromes,
+    "cutoff|c=f" => \my $threshold,
+);
 
 my $file_path_cp = $file_path;
 $file_path_cp =~ s/.*\///;
 my ($file_name, $file_extension) = $file_path_cp =~ /^(.+)\.([^.]+)$/;
 
 open my $input, "<:utf8", $file_path or die;
-my (%id_sequence_hash, $stored_id, $flag);
+my (%id_sequence_hash, $id);
 while (<$input>) {
     chomp;
-    if ($_ =~ m/\A>(.+)/) {
-        my @fields = split / /;
-        my $id = $fields[0];
-        $id =~ s/>//;
-        $stored_id = $id;
-        $flag = 1;
-    } elsif ($flag) {
-        $id_sequence_hash{$stored_id} = uc $_;
-        $flag = 0;
+    if (m/\A>/) {
+        ($id) = m/\A>(\S+)/;
+    } else {
+        $id_sequence_hash{$id} = uc $_;
     };
     last if eof $input;
 };
@@ -28,8 +27,11 @@ close $input;
 
 our @tetranucleotides;
 foreach (kmer_generator(4)) {
-#     push @tetranucleotides, $_ if palindrome(\$_);
-    push @tetranucleotides, $_ if $_ eq reverse_complement($_);
+    if ($use_palindromes) {
+        push @tetranucleotides, $_ if $_ eq reverse_complement($_);
+    } else {
+        push @tetranucleotides, $_;
+    };
 };
 
 my %id_kmer_normalised_count;
@@ -54,13 +56,14 @@ if ($optimisation == 1) {
     my %silhouette_coefficient = silhouette_coefficient_generator(\%id_kmer_normalised_count);
     my $max = 0;
     my $key;
+    print "Threshold\tSilouette coef\n";
     foreach (sort keys %silhouette_coefficient) {
         print "$_\t$silhouette_coefficient{$_}\n";
         ($max, $key) = ($silhouette_coefficient{$_}, $_) if $silhouette_coefficient{$_} > $max;
     };
     $threshold = $key;
 } elsif ($optimisation == 0) {
-    $threshold = shift @ARGV;
+    $threshold;
 };
 
 my %result = agglomerative_clustering(\%id_kmer_normalised_count, $threshold);
@@ -70,6 +73,7 @@ foreach (sort keys %result) {
     my @ids = split ",";
     open my $output, ">:utf8", "cluster_${i}_${file_name}.${file_extension}" or die;
     for my $id (@ids) {
+        print "cluster ${i}:\t$id\n";
         print $output ">${id}\n$id_sequence_hash{$id}\n";
     };
     $i++;
@@ -124,18 +128,16 @@ sub mean {
 };
 
 sub max {
-    my @data = @_;
-    my $max;
-    foreach (@data) {
+    my $max = shift;
+    foreach (@_) {
         $max = $_ if $_ > $max;
     };
     return $max;
 }
 
 sub min {
-    my @data = @_;
-    my $min;
-    foreach (@data) {
+    my $min = shift;
+    foreach (@_) {
         $min = $_ if $_ < $min;
     };
     return $min;
@@ -152,10 +154,10 @@ sub palindrome {
 };
 
 sub reverse_complement {
-    my $string = $_[0];
-    $string =~ tr/ATGC/TACG/;
-    $string = reverse $string;
-    return $string;
+    my $sequence = $_[0];
+    $sequence =~ tr/ATGC/TACG/;
+    $sequence = reverse $sequence;
+    return $sequence;
 };
 
 sub tandem_repeat_remover {
@@ -172,8 +174,8 @@ sub kmer_generator {
     my @bases_2 = @bases_1;
     for (my $i = 1; $i < $k; $i++) {
         my @temporary;
-        foreach my $base_1 (@bases_1) {
-            foreach my $base_2 (@bases_2) {
+        for my $base_1 (@bases_1) {
+            for my $base_2 (@bases_2) {
                 push @temporary, "$base_1" . "$base_2";
             };
         };
