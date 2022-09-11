@@ -1,6 +1,8 @@
 # tetranucleotide clustering
 This is a simple Perl script for clustering based on tetranucleotide frequency.
+
 It will get the normalised count for the tetranucleotides then calculate the Euclidean distance between each sequences and cluster them based on an unsupervised clustering method, agglomerative clustering.
+
 I have included an optimisation method, the Silhouette coefficient, but it will take many times the time and resources to finish.
 
 ## How to use
@@ -12,6 +14,6 @@ There are three params:
 
 Example:
 
-perl tetranucleotides.pl -i input.fasta -a 1 -> cluster based on palindromic tetranucleotides and automated threshold optimisation
+perl tetranucleotides.pl -i input.fasta -a 1 ==> cluster based on palindromic tetranucleotides and automated threshold optimisation
 
-perl tetranucleotides.pl -i input.fasta -a 0 -p 0 -c 1.3 -> cluster based on all tetranucleotides and manually set threshold
+perl tetranucleotides.pl -i input.fasta -a 0 -p 0 -c 1.3 ==> cluster based on all tetranucleotides and manually set threshold
