@@ -3,14 +3,25 @@ use Getopt::Long;
 
 GetOptions(
     "input|i=s" => \my $file_path,
+    "knucleotide|k=i" => \my $knu,
     "auto|a=i" => \(my $optimisation = 1),
-    "palindromes|p=i" => \my $use_palindromes,
+    "palindromes|p=i" => \(my $use_palindromes = 1),
     "cutoff|c=f" => \my $threshold,
 );
-
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 my $file_path_cp = $file_path;
 $file_path_cp =~ s/.*\///;
 my ($file_name, $file_extension) = $file_path_cp =~ /^(.+)\.([^.]+)$/;
+
+print "Input: ${file_path}\n";
+if ($optimisation == 1) {
+    print "Parameters:\n\t- k-Nucleotide: ${knu}\n\t- Silhouette optimisation: ${optimisation}\n\t- Use palindromes: ${use_palindromes}\n\t- Dendrogram cutoff: Auto\n";
+} else {
+    print "Parameters:\n\t- k-Nucleotide: ${knu}\n\t- Silhouette optimisation: ${optimisation}\n\t- Use palindromes: ${use_palindromes}\n\t- Dendrogram cutoff: ${threshold}\n";
+}
+
+print "=" x 30 . "\n";
+print "Running now! Please wait...\n";
 
 open my $input, "<:utf8", $file_path or die;
 my (%id_sequence_hash, $id);
@@ -25,28 +36,28 @@ while (<$input>) {
 };
 close $input;
 
-our @tetranucleotides;
-foreach (kmer_generator(4)) {
+our @knucleotides;
+foreach (kmer_generator($knu)) {
     if ($use_palindromes) {
-        push @tetranucleotides, $_ if $_ eq reverse_complement($_);
+        push @knucleotides, $_ if $_ eq reverse_complement($_);
     } else {
-        push @tetranucleotides, $_;
+        push @knucleotides, $_;
     };
 };
 
 my %id_kmer_normalised_count;
 for my $id (sort keys %id_sequence_hash) {
-    my $no_repeat_sequence = tandem_repeat_remover($id_sequence_hash{$id}, 4, 0);
-    my $kmer_counts = kmer_count_generator($no_repeat_sequence, 4);
+    my $no_repeat_sequence = tandem_repeat_remover($id_sequence_hash{$id}, $knu, 3, 0);
+    my $kmer_counts = kmer_count_generator($no_repeat_sequence, $knu);
     my $base_frequencies = base_frequency_generator($no_repeat_sequence);
-    foreach (@tetranucleotides) {
+    foreach (@knucleotides) {
         my $expected_count = 1;
         my $normalised_usage;
         my $kmer_base_counts = base_count_generator($_);
         for my $base ("A", "T", "G", "C") {
             $expected_count *= ($base_frequencies->{$base} ** $kmer_base_counts->{$base});
         };
-        $expected_count *= (length($no_repeat_sequence) - 4 + 1);
+        $expected_count *= (length($no_repeat_sequence) - $knu + 1);
         $normalised_usage = $kmer_counts->{$_} / $expected_count;
         $id_kmer_normalised_count{$id}{$_} = $normalised_usage;
     };
@@ -56,7 +67,7 @@ if ($optimisation == 1) {
     my %silhouette_coefficient = silhouette_coefficient_generator(\%id_kmer_normalised_count);
     my $max = 0;
     my $key;
-    print "Threshold\tSilouette coef\n";
+    print "Threshold\tSilouette coefficient\n";
     foreach (sort keys %silhouette_coefficient) {
         print "$_\t$silhouette_coefficient{$_}\n";
         ($max, $key) = ($silhouette_coefficient{$_}, $_) if $silhouette_coefficient{$_} > $max;
@@ -67,10 +78,9 @@ if ($optimisation == 1) {
 };
 
 my %result = agglomerative_clustering(\%id_kmer_normalised_count, $threshold);
-
 my $i = 1;
 foreach (sort keys %result) {
-    my @ids = split ",";
+    my @ids = split /,/;
     open my $output, ">:utf8", "cluster_${i}_${file_name}.${file_extension}" or die;
     for my $id (@ids) {
         print "cluster ${i}:\t$id\n";
@@ -79,47 +89,7 @@ foreach (sort keys %result) {
     $i++;
     close $output;
 };
-
-sub agglomerative_clustering {
-    my %data = %{$_[0]};
-    my $threshold = $_[1];
-    my $size = keys %data;
-    my %clusters;
-    for (my $i = 1; $i < $size; $i++) {
-        my (%distances, $find, @keys);
-        @keys = sort keys %data;
-        for my $index_1 (0 .. $#keys) {
-            for my $index_2 (1 + $index_1 .. $#keys) {
-                my ($distance, $key_1, $key_2) = (0, $keys[$index_1], $keys[$index_2]);
-                $distance = distance_calculator($data{$key_1}, $data{$key_2}, \@::tetranucleotides);
-                $distances{$key_1}{$key_2} = $distance;
-                $find->{min} = $distance unless $find->{min};
-                $find->{key} = [$key_1, $key_2] unless $find->{key};
-                if ($find->{min} > $distance) {
-                    $find->{min} = $distance;
-                    $find->{key} = [$key_1, $key_2];
-                };
-            };
-        };
-        my ($key_1, $key_2) = $find->{key}->@*;
-        $data{"$key_1,$key_2"}{$_} = mean($data{$key_1}{$_}, $data{$key_2}{$_}) foreach @::tetranucleotides;
-        delete @data{($key_1, $key_2)};
-        last if $find->{min} >= $threshold;
-        %clusters = %data;
-    };
-    return %clusters;
-};
-
-sub distance_calculator {
-    my $distance = 0;
-    my %a = %{$_[0]};
-    my %b = %{$_[1]};
-    my @array = @{$_[2]};
-    $distance += ($a{$_} - $b{$_}) ** 2 foreach @array;
-    $distance = sqrt($distance);
-    return $distance;
-};
-
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 sub mean {
     my @data = @_;
     my $sum;
@@ -161,11 +131,21 @@ sub reverse_complement {
 };
 
 sub tandem_repeat_remover {
-    my ($string, $threshold, $change) = @_;
-    foreach (kmer_generator(4)) {
+    my ($string, $k, $threshold, $change) = @_;
+    foreach (kmer_generator($k)) {
         $string =~ s/($_){$threshold,}/$1 x $change/ge;
     };
     return $string;
+};
+
+sub distance_calculator {
+    my $distance = 0;
+    my %a = %{$_[0]};
+    my %b = %{$_[1]};
+    my @array = @{$_[2]};
+    $distance += ($a{$_} - $b{$_}) ** 2 foreach @array;
+    $distance = sqrt($distance);
+    return $distance;
 };
 
 sub kmer_generator {
@@ -237,12 +217,42 @@ sub kmer_frequency_generator {
     return $kmers;
 };
 
+sub agglomerative_clustering {
+    my %data = %{$_[0]};
+    my $threshold = $_[1];
+    my $size = keys %data;
+    my %clusters;
+    for (my $i = 1; $i < $size; $i++) {
+        my (%distances, $find, @keys);
+        @keys = sort keys %data;
+        for my $index_1 (0 .. $#keys) {
+            for my $index_2 (1 + $index_1 .. $#keys) {
+                my ($distance, $key_1, $key_2) = (0, $keys[$index_1], $keys[$index_2]);
+                $distance = distance_calculator($data{$key_1}, $data{$key_2}, \@::knucleotides);
+                $distances{$key_1}{$key_2} = $distance;
+                $find->{min} = $distance unless $find->{min};
+                $find->{key} = [$key_1, $key_2] unless $find->{key};
+                if ($find->{min} > $distance) {
+                    $find->{min} = $distance;
+                    $find->{key} = [$key_1, $key_2];
+                };
+            };
+        };
+        my ($key_1, $key_2) = $find->{key}->@*;
+        $data{"$key_1,$key_2"}{$_} = mean($data{$key_1}{$_}, $data{$key_2}{$_}) foreach @::knucleotides;
+        delete @data{($key_1, $key_2)};
+        last if $find->{min} >= $threshold;
+        %clusters = %data;
+    };
+    return %clusters;
+};
+
 sub silhouette_coefficient_generator {
     my %data = %{$_[0]};
     my $threshold = 0.1;
     my %parameter_clusters;
     my %parameter_score;
-    while ($threshold < sqrt(keys %id_kmer_normalised_count)) {
+    while ($threshold < sqrt((keys %id_kmer_normalised_count)) / 2) {
         my %result = agglomerative_clustering(\%data, $threshold);
         if (%result) {
             $parameter_clusters{$threshold} = [];
@@ -254,7 +264,7 @@ sub silhouette_coefficient_generator {
         $threshold += 0.1;
     };
     foreach (sort keys %parameter_clusters) {
-        my @silhouette_coefficient;
+        my @silhouette_coefficients;
         my @clusters = $parameter_clusters{$_}->@*;
         for my $index_1 (0 .. $#clusters) {
             for my $index_2 (1 + $index_1 .. $#clusters) {
@@ -264,39 +274,39 @@ sub silhouette_coefficient_generator {
                 if (scalar @ids_1 > 1 && scalar @ids_2 == 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
-                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::tetranucleotides);
+                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::knucleotides);
                         };
                         $intra_distance = mean(@intra_distances);
-                        $inter_distance = distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::tetranucleotides);
-                        push @silhouette_coefficient, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
+                        $inter_distance = distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::knucleotides);
+                        push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                     };
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 == 1) {
                     $intra_distance = 0;
-                    $inter_distance = distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::tetranucleotides);
-                    push @silhouette_coefficient, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
+                    $inter_distance = distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::knucleotides);
+                    push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 > 1) {
                     $intra_distance = 0;
                     for my $index_a (0 .. $#ids_2) {
-                        push @inter_distances, distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$ids_2[$index_a]}, \@::tetranucleotides);
+                        push @inter_distances, distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$ids_2[$index_a]}, \@::knucleotides);
                     };
                     $inter_distance = mean(@inter_distances);
-                    push @silhouette_coefficient, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
+                    push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 > 1 && scalar @ids_2 > 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
-                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::tetranucleotides);
+                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::knucleotides);
                         };
                         for my $index_b (0 .. $#ids_2) {
-                            push @inter_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_2[$index_b]}, \@::tetranucleotides);
+                            push @inter_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_2[$index_b]}, \@::knucleotides);
                         };
                         $intra_distance = mean(@intra_distances);
                         $inter_distance = mean(@inter_distances);
-                        push @silhouette_coefficient, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
+                        push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                     };
                 };
             };
         };
-        $parameter_score{$_} = mean(@silhouette_coefficient) unless scalar @silhouette_coefficient == 0;
+        $parameter_score{$_} = mean(@silhouette_coefficients) unless scalar @silhouette_coefficients == 0;
     };
     return %parameter_score;
 };
