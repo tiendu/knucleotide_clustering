@@ -1,6 +1,84 @@
 use strict;
 use Getopt::Long;
 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+package IdSequence;
+
+sub new {
+    my ($class, $id, $sequence) = @_;
+    my $self = {
+        _id => $id,
+        _sequence => $sequence,
+    };
+    return bless($self, $class);
+};
+
+sub base_frequency {
+    my ($self) = @_;
+    my $sequence = $self->{_sequence};
+    my @base_list = ("A", "T", "G", "C");
+    my $base;
+    map {$base->{$_} = 0} @base_list;
+    for (my $i = 0; $i <= length($sequence); $i++) {
+        $base->{substr($sequence, $i, 1)}++ if exists $base->{substr($sequence, $i, 1)};
+    };
+    my $total = 0;
+    $total += $base->{$_} for keys %{$base};
+    $base->{$_} /= $total for keys %{$base};
+    return $base;
+};
+
+sub kmer_frequency {
+    my ($self, $k) = @_;
+    my $sequence = $self->{_sequence};
+    my @kmers_list = kmer_generator($k);
+    my $kmers;
+    map {$kmers->{$_} = 0} @kmers_list;
+    for (my $i = 0; $i <= length($sequence) - $k; $i++) {
+        $kmers->{substr($sequence, $i, $k)}++ if exists $kmers->{substr($sequence, $i, $k)};
+    };
+    my $total = 0;
+    $total += $kmers->{$_} for keys %{$kmers};
+    $kmers->{$_} /= $total for keys %{$kmers};
+    return $kmers;
+};
+
+sub normalised_kmer_frequency {
+    my ($self, $k) = @_;
+    my $base_freq = $self->base_frequency();
+    my $kmer_freq = $self->kmer_frequency($k);
+    my %normal_freq;
+    for my $knu (keys %{$kmer_freq}) {
+        $normal_freq{$knu} = $kmer_freq->{$knu};
+        my @nus = split //, $knu;
+        foreach (@nus) {
+            my $test = $base_freq->{$_};
+            if ($base_freq->{$_} != 0) {
+                $normal_freq{$knu} /= $base_freq->{$_};
+            };
+        };
+    };
+    return %normal_freq;
+};
+
+sub kmer_generator {
+    my ($k) = @_;
+    my @bases_1 = ("A", "T", "G", "C");
+    my @bases_2 = @bases_1;
+    for (my $i = 1; $i < $k; $i++) {
+        my @temporary;
+        for my $base_1 (@bases_1) {
+            for my $base_2 (@bases_2) {
+                push @temporary, "$base_1" . "$base_2";
+            };
+        };
+        undef @bases_2;
+        @bases_2 = @temporary;
+    };
+    return @bases_2;
+};
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+package main;
 GetOptions(
     "input|i=s" => \my $file_path,
     "knucleotide|k=i" => \my $knu,
@@ -8,7 +86,7 @@ GetOptions(
     "palindromes|p=i" => \(my $use_palindromes = 1),
     "cutoff|c=f" => \my $threshold,
 );
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
 my $file_path_cp = $file_path;
 $file_path_cp =~ s/.*\///;
 my ($file_name, $file_extension) = $file_path_cp =~ /^(.+)\.([^.]+)$/;
@@ -24,17 +102,27 @@ print "=" x 30 . "\n";
 print "Running now! Please wait...\n";
 
 open my $input, "<:utf8", $file_path or die;
-my (%id_sequence_hash, $id);
+my (@IdSequence_array, $id);
 while (<$input>) {
     chomp;
     if (m/\A>/) {
         ($id) = m/\A>(\S+)/;
     } else {
-        $id_sequence_hash{$id} = uc $_;
+        my $a_IdSequence = IdSequence->new($id, uc $_);
+        push @IdSequence_array, $a_IdSequence;
     };
     last if eof $input;
 };
 close $input;
+
+my %id_kmer_normalised_frequency;
+for my $IdSequence (@IdSequence_array) {
+    $IdSequence->{_sequence} = tandem_repeat_remover($IdSequence->{_sequence}, $knu, 3, 0);
+    my %normalised_frequency = $IdSequence->normalised_kmer_frequency($knu);
+    foreach (keys %normalised_frequency) {
+        $id_kmer_normalised_frequency{$IdSequence->{_id}}{$_} = $normalised_frequency{$_};
+    };
+};
 
 our @features;
 foreach (kmer_generator($knu)) {
@@ -44,27 +132,9 @@ foreach (kmer_generator($knu)) {
         push @features, $_;
     };
 };
-
-my %id_kmer_normalised_count;
-for my $id (sort keys %id_sequence_hash) {
-    my $no_repeat_sequence = tandem_repeat_remover($id_sequence_hash{$id}, $knu, 3, 0);
-    my $kmer_counts = kmer_count_generator($no_repeat_sequence, $knu);
-    my $base_frequencies = base_frequency_generator($no_repeat_sequence);
-    foreach (@features) {
-        my $expected_count = 1;
-        my $normalised_usage;
-        my $kmer_base_counts = base_count_generator($_);
-        for my $base ("A", "T", "G", "C") {
-            $expected_count *= ($base_frequencies->{$base} ** $kmer_base_counts->{$base});
-        };
-        $expected_count *= (length($no_repeat_sequence) - $knu + 1);
-        $normalised_usage = $kmer_counts->{$_} / $expected_count;
-        $id_kmer_normalised_count{$id}{$_} = $normalised_usage;
-    };
-};
-
+ 
 if ($optimisation == 1) {
-    my %silhouette_coefficient = silhouette_coefficient_generator(\%id_kmer_normalised_count);
+    my %silhouette_coefficient = silhouette_coefficient_generator(\%id_kmer_normalised_frequency);
     my $max = 0;
     my $key;
     print "Threshold\tSilouette coefficient\n";
@@ -77,7 +147,7 @@ if ($optimisation == 1) {
     $threshold;
 };
 
-my %result = agglomerative_clustering(\%id_kmer_normalised_count, $threshold);
+my %result = agglomerative_clustering(\%id_kmer_normalised_frequency, $threshold);
 my $i = 1;
 foreach (sort keys %result) {
     my @ids = split /,/;
@@ -85,9 +155,11 @@ foreach (sort keys %result) {
     print "#" x 30 . "\n";
     for my $id (@ids) {
         print "cluster ${i}:\t$id\n";
-        print $output ">${id}\n$id_sequence_hash{$id}\n";
+        for my $IdSequence (@IdSequence_array) {
+            print $output ">${id}" . "\n" . $IdSequence->{_sequence} . "\n" if $id eq $IdSequence->{_id};
+        };
     };
-    $i++;
+    $i += 1;
     close $output;
 };
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -139,16 +211,6 @@ sub tandem_repeat_remover {
     return $string;
 };
 
-sub distance_calculator {
-    my $distance = 0;
-    my %a = %{$_[0]};
-    my %b = %{$_[1]};
-    my @array = @{$_[2]};
-    $distance += ($a{$_} - $b{$_}) ** 2 foreach @array;
-    $distance = sqrt($distance);
-    return $distance;
-};
-
 sub kmer_generator {
     my ($k) = @_;
     my @bases_1 = ("A", "T", "G", "C");
@@ -166,56 +228,14 @@ sub kmer_generator {
     return @bases_2;
 };
 
-sub base_count_generator {
-    my $sequence = $_[0];
-    my @base_list = ("A", "T", "G", "C");
-    my $base;
-    map {$base->{$_} = 0} @base_list;
-    for (my $i = 0; $i <= length($sequence); $i++) {
-        $base->{substr($sequence, $i, 1)}++ if exists $base->{substr($sequence, $i, 1)};
-    };
-    return $base;
-};
-
-sub base_frequency_generator {
-    my $sequence = $_[0];
-    my @base_list = ("A", "T", "G", "C");
-    my $base;
-    map {$base->{$_} = 0} @base_list;
-    for (my $i = 0; $i <= length($sequence); $i++) {
-        $base->{substr($sequence, $i, 1)}++ if exists $base->{substr($sequence, $i, 1)};
-    };
-    my $total = 0;
-    $total += $base->{$_} for keys %{$base};
-    $base->{$_} /= $total for keys %{$base};
-    return $base;
-};
-
-sub kmer_count_generator {
-    my $sequence = $_[0];
-    my $k = $_[1];
-    my @kmers_list = kmer_generator($k);
-    my $kmers;
-    map {$kmers->{$_} = 0} @kmers_list;
-    for (my $i = 0; $i <= length($sequence) - $k; $i++) {
-        $kmers->{substr($sequence, $i, $k)}++ if exists $kmers->{substr($sequence, $i, $k)};
-    };
-    return $kmers;
-};
-
-sub kmer_frequency_generator {
-    my $sequence = $_[0];
-    my $k = $_[1];
-    my @kmers_list = kmer_generator($k);
-    my $kmers;
-    map {$kmers->{$_} = 0} @kmers_list;
-    for (my $i = 0; $i <= length($sequence) - $k; $i++) {
-        $kmers->{substr($sequence, $i, $k)}++ if exists $kmers->{substr($sequence, $i, $k)};
-    };
-    my $total = 0;
-    $total += $kmers->{$_} for keys %{$kmers};
-    $kmers->{$_} /= $total for keys %{$kmers};
-    return $kmers;
+sub distance_calculator {
+    my $distance = 0;
+    my %a = %{$_[0]};
+    my %b = %{$_[1]};
+    my @array = @{$_[2]};
+    $distance += ($a{$_} - $b{$_}) ** 2 foreach @array;
+    $distance = sqrt($distance);
+    return $distance;
 };
 
 sub agglomerative_clustering {
