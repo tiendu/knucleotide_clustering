@@ -82,6 +82,7 @@ my $i = 1;
 foreach (sort keys %result) {
     my @ids = split /,/;
     open my $output, ">:utf8", "cluster_${i}_${file_name}.${file_extension}" or die;
+    print "#" x 30 . "\n";
     for my $id (@ids) {
         print "cluster ${i}:\t$id\n";
         print $output ">${id}\n$id_sequence_hash{$id}\n";
@@ -252,7 +253,8 @@ sub silhouette_coefficient_generator {
     my $threshold = 0.1;
     my %parameter_clusters;
     my %parameter_score;
-    while ($threshold < sqrt((keys %id_kmer_normalised_count)) / 2) {
+    my $count = 0;
+    while ($count < sqrt(keys %data)) {
         my %result = agglomerative_clustering(\%data, $threshold);
         if (%result) {
             $parameter_clusters{$threshold} = [];
@@ -260,6 +262,7 @@ sub silhouette_coefficient_generator {
                 push $parameter_clusters{$threshold}->@*, $_;
             };
             last if keys %result == 2;
+            $count += 1;
         };
         $threshold += 0.1;
     };
@@ -274,30 +277,30 @@ sub silhouette_coefficient_generator {
                 if (scalar @ids_1 > 1 && scalar @ids_2 == 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
-                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::features);
+                            push @intra_distances, distance_calculator($data{$ids_1[$index_a]}, $data{$ids_1[$index_b]}, \@::features);
                         };
                         $intra_distance = mean(@intra_distances);
-                        $inter_distance = distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::features);
+                        $inter_distance = distance_calculator($data{$ids_1[$index_a]}, $data{$clusters[$index_2]}, \@::features);
                         push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                     };
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 == 1) {
                     $intra_distance = 0;
-                    $inter_distance = distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::features);
+                    $inter_distance = distance_calculator($data{$clusters[$index_1]}, $data{$clusters[$index_2]}, \@::features);
                     push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 > 1) {
                     $intra_distance = 0;
                     for my $index_a (0 .. $#ids_2) {
-                        push @inter_distances, distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$ids_2[$index_a]}, \@::features);
+                        push @inter_distances, distance_calculator($data{$clusters[$index_1]}, $data{$ids_2[$index_a]}, \@::features);
                     };
                     $inter_distance = mean(@inter_distances);
                     push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 > 1 && scalar @ids_2 > 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
-                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::features);
+                            push @intra_distances, distance_calculator($data{$ids_1[$index_a]}, $data{$ids_1[$index_b]}, \@::features);
                         };
                         for my $index_b (0 .. $#ids_2) {
-                            push @inter_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_2[$index_b]}, \@::features);
+                            push @inter_distances, distance_calculator($data{$ids_1[$index_a]}, $data{$ids_2[$index_b]}, \@::features);
                         };
                         $intra_distance = mean(@intra_distances);
                         $inter_distance = mean(@inter_distances);
