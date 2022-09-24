@@ -36,12 +36,12 @@ while (<$input>) {
 };
 close $input;
 
-our @knucleotides;
+our @features;
 foreach (kmer_generator($knu)) {
     if ($use_palindromes) {
-        push @knucleotides, $_ if $_ eq reverse_complement($_);
+        push @features, $_ if $_ eq reverse_complement($_);
     } else {
-        push @knucleotides, $_;
+        push @features, $_;
     };
 };
 
@@ -50,7 +50,7 @@ for my $id (sort keys %id_sequence_hash) {
     my $no_repeat_sequence = tandem_repeat_remover($id_sequence_hash{$id}, $knu, 3, 0);
     my $kmer_counts = kmer_count_generator($no_repeat_sequence, $knu);
     my $base_frequencies = base_frequency_generator($no_repeat_sequence);
-    foreach (@knucleotides) {
+    foreach (@features) {
         my $expected_count = 1;
         my $normalised_usage;
         my $kmer_base_counts = base_count_generator($_);
@@ -228,7 +228,7 @@ sub agglomerative_clustering {
         for my $index_1 (0 .. $#keys) {
             for my $index_2 (1 + $index_1 .. $#keys) {
                 my ($distance, $key_1, $key_2) = (0, $keys[$index_1], $keys[$index_2]);
-                $distance = distance_calculator($data{$key_1}, $data{$key_2}, \@::knucleotides);
+                $distance = distance_calculator($data{$key_1}, $data{$key_2}, \@::features);
                 $distances{$key_1}{$key_2} = $distance;
                 $find->{min} = $distance unless $find->{min};
                 $find->{key} = [$key_1, $key_2] unless $find->{key};
@@ -239,7 +239,7 @@ sub agglomerative_clustering {
             };
         };
         my ($key_1, $key_2) = $find->{key}->@*;
-        $data{"$key_1,$key_2"}{$_} = mean($data{$key_1}{$_}, $data{$key_2}{$_}) foreach @::knucleotides;
+        $data{"$key_1,$key_2"}{$_} = mean($data{$key_1}{$_}, $data{$key_2}{$_}) foreach @::features;
         delete @data{($key_1, $key_2)};
         last if $find->{min} >= $threshold;
         %clusters = %data;
@@ -274,30 +274,30 @@ sub silhouette_coefficient_generator {
                 if (scalar @ids_1 > 1 && scalar @ids_2 == 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
-                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::knucleotides);
+                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::features);
                         };
                         $intra_distance = mean(@intra_distances);
-                        $inter_distance = distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::knucleotides);
+                        $inter_distance = distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::features);
                         push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                     };
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 == 1) {
                     $intra_distance = 0;
-                    $inter_distance = distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::knucleotides);
+                    $inter_distance = distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$clusters[$index_2]}, \@::features);
                     push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 > 1) {
                     $intra_distance = 0;
                     for my $index_a (0 .. $#ids_2) {
-                        push @inter_distances, distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$ids_2[$index_a]}, \@::knucleotides);
+                        push @inter_distances, distance_calculator($id_kmer_normalised_count{$clusters[$index_1]}, $id_kmer_normalised_count{$ids_2[$index_a]}, \@::features);
                     };
                     $inter_distance = mean(@inter_distances);
                     push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 > 1 && scalar @ids_2 > 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
-                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::knucleotides);
+                            push @intra_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_1[$index_b]}, \@::features);
                         };
                         for my $index_b (0 .. $#ids_2) {
-                            push @inter_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_2[$index_b]}, \@::knucleotides);
+                            push @inter_distances, distance_calculator($id_kmer_normalised_count{$ids_1[$index_a]}, $id_kmer_normalised_count{$ids_2[$index_b]}, \@::features);
                         };
                         $intra_distance = mean(@intra_distances);
                         $inter_distance = mean(@inter_distances);
