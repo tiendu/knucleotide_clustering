@@ -125,37 +125,45 @@ foreach (kmer_generator($knu)) {
         push @features, $_;
     };
 };
- 
+
 if ($optimisation == 1) {
     my %silhouette_coefficient = silhouette_coefficient_generator(\%id_kmer_normalised_frequency);
     my $max = 0;
     my $key;
-    print "Threshold\tSilouette coefficient\n";
+    open my $report, ">:utf8", "silhouette_coef_${file_name}.txt" or die;
+    print $report "Threshold\tSilouette coefficient\n";
     foreach (sort keys %silhouette_coefficient) {
-        print "$_\t$silhouette_coefficient{$_}\n";
+        print $report "$_\t$silhouette_coefficient{$_}\n";
         ($max, $key) = ($silhouette_coefficient{$_}, $_) if $silhouette_coefficient{$_} > $max;
     };
     $threshold = $key;
+    close $report;
 } elsif ($optimisation == 0) {
     $threshold;
 };
 
 my %result = agglomerative_clustering(\%id_kmer_normalised_frequency, $threshold);
 my $i = 1;
+open my $output_1, ">:utf8", "clusters_${file_name}.txt" or die;
 foreach (sort keys %result) {
     my @ids = split /,/;
-    open my $output, ">:utf8", "cluster_${i}_${file_name}.${file_extension}" or die;
-    print "#" x 30 . "\n";
+    open my $output_2, ">:utf8", "cluster_${i}_${file_name}.${file_extension}" or die;
+    print $output_1 "#" x 30 . "\n";
     for my $id (@ids) {
-        print "cluster ${i}:\t$id\n";
+        print $output_1 "cluster ${i}:\t$id\n";
         for my $IdSequence (@IdSequence_array) {
-            print $output ">${id}" . "\n" . $IdSequence->{_sequence} . "\n" if $id eq $IdSequence->{_id};
+            print $output_2 ">${id}" . "\n" . $IdSequence->{_sequence} . "\n" if $id eq $IdSequence->{_id};
         };
     };
     $i += 1;
-    close $output;
+    close $output_2;
 };
-print "#" x 30 . "\n";
+print $output_1 "#" x 30 . "\n";
+close $output_1;
+print "=" x 30 . "\n";
+print "Clustering done!\n";
+print "Output:\n" . "- Optimisation report:\tsilhouette_coef_${file_name}.txt\n" . "- Cluster information:\tclusters_${file_name}.txt\n" . "- Files contain the sequences in FASTA format: cluster_n_${file_name}.${file_extension}\n" if $optimisation == 1;
+print "Output:\n" . "- Cluster information:\tclusters_${file_name}.txt\n" . "- Files contain the sequences in FASTA format: cluster_n_${file_name}.${file_extension}\n" if $optimisation == 0;
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 sub mean {
     my @data = @_;
