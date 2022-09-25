@@ -81,6 +81,11 @@ GetOptions(
     "cutoff|c=f" => \my $threshold,
 );
 
+if (!@ARGV) {
+    print "$0: Argument required.\n";
+    exit 1;
+};
+
 my $file_path_cp = $file_path;
 $file_path_cp =~ s/.*\///;
 my ($file_name, $file_extension) = $file_path_cp =~ /^(.+)\.([^.]+)$/;
