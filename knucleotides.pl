@@ -81,8 +81,14 @@ GetOptions(
     "cutoff|c=f" => \my $threshold,
 );
 
-if (!@ARGV) {
-    print "$0: Argument required.\n";
+if (!$file_path) {
+    print "$0: Input required!\n";
+    exit 1;
+} elsif (!$knu) {
+    print "$0: k-nucleotide required!\n";
+    exit 1;
+} elsif ($optimisation == 0 && !$threshold) {
+    print "$0: Manual clustering, threshold required!\n";
     exit 1;
 };
 
