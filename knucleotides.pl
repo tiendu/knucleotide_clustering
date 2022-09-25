@@ -31,9 +31,20 @@ sub base_frequency {
 sub kmer_frequency {
     my ($self, $k) = @_;
     my $sequence = $self->{_sequence};
-    my @kmers_list = kmer_generator($k);
+    my @bases_1 = ("A", "T", "G", "C");
+    my @bases_2 = @bases_1;
+    for (my $i = 1; $i < $k; $i++) {
+        my @temporary;
+        for my $base_1 (@bases_1) {
+            for my $base_2 (@bases_2) {
+                push @temporary, "$base_1" . "$base_2";
+            };
+        };
+        undef @bases_2;
+        @bases_2 = @temporary;
+    };
     my $kmers;
-    map {$kmers->{$_} = 0} @kmers_list;
+    map {$kmers->{$_} = 0} @bases_2;
     for (my $i = 0; $i <= length($sequence) - $k; $i++) {
         $kmers->{substr($sequence, $i, $k)}++ if exists $kmers->{substr($sequence, $i, $k)};
     };
@@ -60,23 +71,6 @@ sub normalised_kmer_frequency {
     };
     return %normal_freq;
 };
-
-sub kmer_generator {
-    my ($k) = @_;
-    my @bases_1 = ("A", "T", "G", "C");
-    my @bases_2 = @bases_1;
-    for (my $i = 1; $i < $k; $i++) {
-        my @temporary;
-        for my $base_1 (@bases_1) {
-            for my $base_2 (@bases_2) {
-                push @temporary, "$base_1" . "$base_2";
-            };
-        };
-        undef @bases_2;
-        @bases_2 = @temporary;
-    };
-    return @bases_2;
-};
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 package main;
 GetOptions(
@@ -97,7 +91,6 @@ if ($optimisation == 1) {
 } else {
     print "Parameters:\n\t- k-Nucleotide: ${knu}\n\t- Silhouette optimisation: ${optimisation}\n\t- Use palindromes: ${use_palindromes}\n\t- Dendrogram cutoff: ${threshold}\n";
 }
-
 print "=" x 30 . "\n";
 print "Running now! Please wait...\n";
 
@@ -162,6 +155,7 @@ foreach (sort keys %result) {
     $i += 1;
     close $output;
 };
+print "#" x 30 . "\n";
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 sub mean {
     my @data = @_;
