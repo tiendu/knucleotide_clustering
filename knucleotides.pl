@@ -173,8 +173,8 @@ print $output_1 "#" x 30 . "\n";
 close $output_1;
 print "=" x 30 . "\n";
 print "Clustering done!\n";
-print "Output:\n" . "- Optimisation report:\tsilhouette_coef_${file_name}.txt\n" . "- Cluster information:\tclusters_${file_name}.txt\n" . "- Files contain the sequences in FASTA format: cluster_n_${file_name}.${file_extension}\n" if $optimisation == 1;
-print "Output:\n" . "- Cluster information:\tclusters_${file_name}.txt\n" . "- Files contain the sequences in FASTA format: cluster_n_${file_name}.${file_extension}\n" if $optimisation == 0;
+print "Output:\n" . "- Optimisation report: silhouette_coef_${file_name}.txt\n" . "- Cluster information: clusters_${file_name}.txt\n" . "- Files contain the sequences in FASTA format: cluster_n_${file_name}.${file_extension}\n" if $optimisation == 1;
+print "Output:\n" . "- Cluster information: clusters_${file_name}.txt\n" . "- Files contain the sequences in FASTA format: cluster_n_${file_name}.${file_extension}\n" if $optimisation == 0;
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 sub mean {
     my @data = @_;
@@ -212,8 +212,7 @@ sub palindrome {
 sub reverse_complement {
     my $sequence = $_[0];
     $sequence =~ tr/ATGC/TACG/;
-    $sequence = reverse $sequence;
-    return $sequence;
+    return reverse($sequence);
 };
 
 sub tandem_repeat_remover {
@@ -247,16 +246,14 @@ sub distance_calculator {
     my %b = %{$_[1]};
     my @array = @{$_[2]};
     $distance += ($a{$_} - $b{$_}) ** 2 foreach @array;
-    $distance = sqrt($distance);
-    return $distance;
+    return sqrt($distance);
 };
 
 sub agglomerative_clustering {
     my %data = %{$_[0]};
     my $threshold = $_[1];
-    my $size = keys %data;
     my %clusters;
-    for (my $i = 1; $i < $size; $i++) {
+    for (my $i = 1; $i < (keys %data); $i++) {
         my (%distances, $find, @keys);
         @keys = sort keys %data;
         for my $index_1 (0 .. $#keys) {
