@@ -18,15 +18,13 @@ sub base_frequency {
     my ($self) = @_;
     my $sequence = $self->{_sequence};
     my @base_list = ("A", "T", "G", "C");
-    my $base;
-    map {$base->{$_} = 0} @base_list;
+    my %base;
+    map {$base{$_} = 0} @base_list;
     for (my $i = 0; $i <= length($sequence); $i++) {
-        $base->{substr($sequence, $i, 1)}++ if exists $base->{substr($sequence, $i, 1)};
+        $base{substr($sequence, $i, 1)}++ if exists $base{substr($sequence, $i, 1)};
     };
-    my $total = 0;
-    $total += $base->{$_} for keys %{$base};
-    $base->{$_} /= $total for keys %{$base};
-    return $base;
+    $base{$_} /= length($sequence) for keys %base;
+    return %base;
 };
 
 sub kmer_frequency {
@@ -35,42 +33,42 @@ sub kmer_frequency {
     my @bases_1 = ("A", "T", "G", "C");
     my @bases_2 = @bases_1;
     for (my $i = 1; $i < $k; $i++) {
-        my @temporary;
+        my @temp;
         for my $base_1 (@bases_1) {
             for my $base_2 (@bases_2) {
-                push @temporary, "$base_1" . "$base_2";
+                push @temp, "$base_1" . "$base_2";
             };
         };
         undef @bases_2;
-        @bases_2 = @temporary;
+        @bases_2 = @temp;
     };
-    my $kmers;
-    map {$kmers->{$_} = 0} @bases_2;
+    my %kmers;
+    map {$kmers{$_} = 0} @bases_2;
     for (my $i = 0; $i <= length($sequence) - $k; $i++) {
-        $kmers->{substr($sequence, $i, $k)}++ if exists $kmers->{substr($sequence, $i, $k)};
+        $kmers{substr($sequence, $i, $k)}++ if exists $kmers{substr($sequence, $i, $k)};
     };
     my $total = 0;
-    $total += $kmers->{$_} for keys %{$kmers};
-    $kmers->{$_} /= $total for keys %{$kmers};
-    return $kmers;
+    $total += $kmers{$_} for keys %kmers;
+    $kmers{$_} /= $total for keys %kmers;
+    return %kmers;
 };
 
 sub normalised_kmer_frequency {
     my ($self, $k) = @_;
-    my $base_freq = $self->base_frequency();
-    my $kmer_freq = $self->kmer_frequency($k);
-    my %normal_freq;
-    for my $knu (keys %{$kmer_freq}) {
-        $normal_freq{$knu} = $kmer_freq->{$knu};
+    my %base_freq = $self->base_frequency();
+    my %kmer_freq = $self->kmer_frequency($k);
+    my %norm_freq;
+    for my $knu (keys %kmer_freq) {
+        $norm_freq{$knu} = $kmer_freq{$knu};
         my @nus = split //, $knu;
         foreach (@nus) {
-            my $test = $base_freq->{$_};
-            if ($base_freq->{$_} != 0) {
-                $normal_freq{$knu} /= $base_freq->{$_};
+            my $test = $base_freq{$_};
+            if ($base_freq{$_} != 0) {
+                $norm_freq{$knu} /= $base_freq{$_};
             };
         };
     };
-    return %normal_freq;
+    return %norm_freq;
 };
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 package main;
@@ -281,7 +279,7 @@ sub agglomerative_clustering {
 
 sub silhouette_coefficient_generator {
     my %data = %{$_[0]};
-    my $threshold = 0.1;
+    my $threshold = 0.0;
     my %parameter_clusters;
     while (1) {
         my %result = agglomerative_clustering(\%data, $threshold);
