@@ -1,4 +1,5 @@
 use strict;
+use warnings;
 use Getopt::Long;
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -152,7 +153,7 @@ if ($optimisation == 1) {
     $threshold = $key;
     close $report;
 } elsif ($optimisation == 0) {
-    $threshold;
+    $threshold = $threshold;
 };
 
 my %result = agglomerative_clustering(\%id_kmer_normalised_frequency, $threshold);
