@@ -138,8 +138,7 @@ foreach (kmer_generator($knu)) {
 
 if ($optimisation == 1) {
     my %silhouette_coefficient = silhouette_coefficient_generator(\%id_kmer_normalised_frequency);
-    my $max = 0;
-    my $key;
+    my ($max, $key);
     open my $report, ">:utf8", "silhouette_coef_${file_name}.txt" or die;
     for my $parameter (sort keys %silhouette_coefficient) {
         my $number_of_clusters = $silhouette_coefficient{$parameter}[0];
@@ -279,7 +278,7 @@ sub agglomerative_clustering {
 
 sub silhouette_coefficient_generator {
     my %data = %{$_[0]};
-    my $threshold = 0.0;
+    my $threshold = 0.1;
     my %parameter_clusters;
     while (1) {
         my %result = agglomerative_clustering(\%data, $threshold);
