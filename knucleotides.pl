@@ -70,6 +70,10 @@ sub normalised_kmer_frequency {
     };
     return %norm_freq;
 };
+
+sub DESTROY {
+    my ($self) = @_;
+};
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 package main;
 GetOptions(
@@ -138,15 +142,20 @@ foreach (kmer_generator($knu)) {
 
 if ($optimisation == 1) {
     my %silhouette_coefficient = silhouette_coefficient_generator(\%id_kmer_normalised_frequency);
-    my ($max, $key);
+    my %find;
     open my $report, ">:utf8", "silhouette_coef_${file_name}.txt" or die;
     for my $parameter (sort keys %silhouette_coefficient) {
         my $number_of_clusters = $silhouette_coefficient{$parameter}[0];
         my $coefficient = $silhouette_coefficient{$parameter}[1];
         print $report "$parameter\t$number_of_clusters\t$coefficient\n";
-        ($max, $key) = ($coefficient, $parameter) if $coefficient > $max;
+        $find{max} = $coefficient unless $find{max};
+        $find{key} = $parameter unless $find{key};
+        if ($find{max} < $coefficient) {
+            $find{max} = $coefficient;
+            $find{key} = $parameter;
+        };
     };
-    $threshold = $key;
+    $threshold = $find{key};
     close $report;
 } elsif ($optimisation == 0) {
     $threshold = $threshold;
