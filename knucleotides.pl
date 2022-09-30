@@ -252,26 +252,26 @@ sub agglomerative_clustering {
     my $threshold = $_[1];
     my %clusters;
     for (my $i = 1; $i < (keys %data); $i++) {
-        my (%distances, $find, @keys);
+        my (%distances, %find, @keys);
         @keys = sort keys %data;
         for my $index_1 (0 .. $#keys) {
             for my $index_2 (1 + $index_1 .. $#keys) {
                 my ($distance, $key_1, $key_2) = (0, $keys[$index_1], $keys[$index_2]);
                 $distance = distance_calculator($data{$key_1}, $data{$key_2}, \@::features);
                 $distances{$key_1}{$key_2} = $distance;
-                $find->{min} = $distance unless $find->{min};
-                $find->{key} = [$key_1, $key_2] unless $find->{key};
-                if ($find->{min} > $distance) {
-                    $find->{min} = $distance;
-                    $find->{key} = [$key_1, $key_2];
+                $find{min} = $distance unless $find{min};
+                $find{key} = [$key_1, $key_2] unless $find{key};
+                if ($find{min} > $distance) {
+                    $find{min} = $distance;
+                    $find{key} = [$key_1, $key_2];
                 };
             };
         };
-        my ($key_1, $key_2) = $find->{key}->@*;
+        my ($key_1, $key_2) = $find{key}->@*;
         $data{"$key_1,$key_2"}{$_} = mean($data{$key_1}{$_}, $data{$key_2}{$_}) foreach @::features;
         delete @data{($key_1, $key_2)};
         %clusters = %data;
-        last if $find->{min} >= $threshold;
+        last if $find{min} >= $threshold;
     };
     return %clusters;
 };
