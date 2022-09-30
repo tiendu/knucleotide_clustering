@@ -143,7 +143,6 @@ if ($optimisation == 1) {
     my $max = 0;
     my $key;
     open my $report, ">:utf8", "silhouette_coef_${file_name}.txt" or die;
-    print $report "Threshold\tNo. of clusters\tSilouette coefficient\n";
     for my $parameter (sort keys %silhouette_coefficient) {
         my $number_of_clusters = $silhouette_coefficient{$parameter}[0];
         my $coefficient = $silhouette_coefficient{$parameter}[1];
