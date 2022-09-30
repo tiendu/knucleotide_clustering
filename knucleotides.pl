@@ -142,10 +142,12 @@ if ($optimisation == 1) {
     my $max = 0;
     my $key;
     open my $report, ">:utf8", "silhouette_coef_${file_name}.txt" or die;
-    print $report "Threshold\tSilouette coefficient\n";
-    foreach (sort keys %silhouette_coefficient) {
-        print $report "$_\t$silhouette_coefficient{$_}\n";
-        ($max, $key) = ($silhouette_coefficient{$_}, $_) if $silhouette_coefficient{$_} > $max;
+    print $report "Threshold\tNo. of clusters\tSilouette coefficient\n";
+    for my $parameter (sort keys %silhouette_coefficient) {
+        my $number_of_clusters = $silhouette_coefficient{$parameter}[0];
+        my $coefficient = $silhouette_coefficient{$parameter}[1];
+        print $report "$parameter\t$number_of_clusters\t$coefficient\n";
+        ($max, $key) = ($coefficient, $parameter) if $coefficient > $max;
     };
     $threshold = $key;
     close $report;
@@ -169,7 +171,6 @@ foreach (sort keys %result) {
     $i += 1;
     close $output_2;
 };
-print $output_1 "#" x 30 . "\n";
 close $output_1;
 print "=" x 30 . "\n";
 print "Clustering done!\n";
@@ -272,8 +273,8 @@ sub agglomerative_clustering {
         my ($key_1, $key_2) = $find->{key}->@*;
         $data{"$key_1,$key_2"}{$_} = mean($data{$key_1}{$_}, $data{$key_2}{$_}) foreach @::features;
         delete @data{($key_1, $key_2)};
-        last if $find->{min} >= $threshold;
         %clusters = %data;
+        last if $find->{min} >= $threshold;
     };
     return %clusters;
 };
@@ -282,20 +283,18 @@ sub silhouette_coefficient_generator {
     my %data = %{$_[0]};
     my $threshold = 0.1;
     my %parameter_clusters;
-    my %parameter_score;
-    my $count = 0;
-    while ($count < sqrt(keys %data)) {
+    while (1) {
         my %result = agglomerative_clustering(\%data, $threshold);
         if (%result) {
             $parameter_clusters{$threshold} = [];
             foreach (sort keys %result) {
                 push $parameter_clusters{$threshold}->@*, $_;
             };
-            last if keys %result == 2;
-            $count += 1;
+            last if keys %result == (keys %data) / 2;
         };
         $threshold += 0.1;
     };
+    my %parameter_score;
     foreach (sort keys %parameter_clusters) {
         my @silhouette_coefficients;
         my @clusters = $parameter_clusters{$_}->@*;
@@ -311,19 +310,16 @@ sub silhouette_coefficient_generator {
                         };
                         $intra_distance = mean(@intra_distances);
                         $inter_distance = distance_calculator($data{$ids_1[$index_a]}, $data{$clusters[$index_2]}, \@::features);
-                        push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                     };
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 == 1) {
                     $intra_distance = 0;
                     $inter_distance = distance_calculator($data{$clusters[$index_1]}, $data{$clusters[$index_2]}, \@::features);
-                    push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 == 1 && scalar @ids_2 > 1) {
                     $intra_distance = 0;
                     for my $index_a (0 .. $#ids_2) {
                         push @inter_distances, distance_calculator($data{$clusters[$index_1]}, $data{$ids_2[$index_a]}, \@::features);
                     };
                     $inter_distance = mean(@inter_distances);
-                    push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                 } elsif (scalar @ids_1 > 1 && scalar @ids_2 > 1) {
                     for my $index_a (0 .. $#ids_1) {
                         for my $index_b (1 + $index_a .. $#ids_1) {
@@ -334,12 +330,12 @@ sub silhouette_coefficient_generator {
                         };
                         $intra_distance = mean(@intra_distances);
                         $inter_distance = mean(@inter_distances);
-                        push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
                     };
                 };
+                push @silhouette_coefficients, ($inter_distance - $intra_distance) / max($inter_distance, $intra_distance);
             };
         };
-        $parameter_score{$_} = mean(@silhouette_coefficients) unless scalar @silhouette_coefficients == 0;
+        $parameter_score{$_} = [scalar @clusters, mean(@silhouette_coefficients)] unless scalar @silhouette_coefficients == 0;
     };
     return %parameter_score;
 };
